@@ -1,2 +1,1 @@
-# dummy-price-contract
-A dummy price contract for testnet, which replies to Simulation requests as if it were mainnet Dex. For dev use where testnet dex is unavailable
+This contract replies to Simulation message queries as if it's got price data, even though it just stores static data. For testnet development of contracts which query a mainnet Dex when testnet equivalents are unavailable.
