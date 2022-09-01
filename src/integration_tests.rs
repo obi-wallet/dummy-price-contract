@@ -63,11 +63,11 @@ mod tests {
 
     mod count {
         use super::*;
-        use crate::msg::ExecuteMsg;
+        // use crate::msg::ExecuteMsg;
 
         #[test]
         fn query_simulation() {
-            let (mut app, cw_template_contract) = proper_instantiate();
+            let (mut _app, _cw_template_contract) = proper_instantiate();
 
             /*
             let msg = ExecuteMsg::Increment {};
