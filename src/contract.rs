@@ -45,6 +45,7 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Simulation { offer_asset } => to_binary(&query_simulation(deps, offer_asset)?),
+        QueryMsg::ReverseSimulation { ask_asset } => to_binary(&query_reverse_simulation(deps, ask_asset)?),
     }
 }
 
@@ -62,6 +63,25 @@ fn query_simulation(deps: Deps, offer_asset: Asset) -> StdResult<SimulationRespo
         Some(asset_price) => Ok(SimulationResponse {
             commission_amount: asset_price.price / Uint128::from(100u128),
             return_amount: asset_price.price - (asset_price.price / Uint128::from(100u128)),
+            spread_amount: Uint128::from(100u128),
+        }),
+    }
+}
+
+fn query_reverse_simulation(deps: Deps, offer_asset: Asset) -> StdResult<SimulationResponse> {
+    let state: State = STATE.load(deps.storage)?;
+    let this_price = state
+        .asset_prices
+        .into_iter()
+        .find(|item| match offer_asset.info.clone() {
+            AssetInfo::NativeToken { denom } => denom == item.denom,
+            AssetInfo::Token { contract_addr } => contract_addr == item.denom,
+        });
+    match this_price {
+        None => Err(StdError::generic_err("Unrecognized asset")),
+        Some(asset_price) => Ok(SimulationResponse {
+            commission_amount: Uint128::from(1_000_000_000_000u128) / asset_price.price * Uint128::from(1_000u128) / Uint128::from(100u128),
+            return_amount: Uint128::from(1_000_000_000_000u128) / asset_price.price * Uint128::from(1_000u128) - (Uint128::from(1_000_000_000_000u128) / asset_price.price * Uint128::from(1_000u128) / Uint128::from(100u128)),
             spread_amount: Uint128::from(100u128),
         }),
     }
@@ -100,7 +120,7 @@ mod tests {
         let price_vec = vec![
             AssetPrice {
                 denom: "ujunox".to_owned(),
-                price: Uint128::from(157_000_000u128),
+                price: Uint128::from(137_000_000u128),
             },
             AssetPrice {
                 denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
@@ -131,6 +151,20 @@ mod tests {
         let query = query_simulation(deps.as_ref(), query_asset).unwrap();
         assert_eq!(query.commission_amount, Uint128::from(300_000u128));
         assert_eq!(query.return_amount, Uint128::from(29_700_000u128));
+        assert_eq!(query.spread_amount, Uint128::from(100u128));
+
+        // query reverse (juno)
+        let query_asset = Asset {
+            info: AssetInfo::NativeToken {
+                denom: "ujunox"
+                    .to_owned(),
+            },
+            amount: Uint128::from(1_000_000u128), // is irrelevant to the response here,
+                                                  // but very relevant on mainnet use with real contract
+        };
+        let query = query_reverse_simulation(deps.as_ref(), query_asset).unwrap();
+        assert_eq!(query.commission_amount, Uint128::from(72_990u128));
+        assert_eq!(query.return_amount, Uint128::from(7_226_010u128));
         assert_eq!(query.spread_amount, Uint128::from(100u128));
     }
 }
