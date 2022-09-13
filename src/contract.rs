@@ -89,12 +89,13 @@ fn query_reverse_simulation(deps: Deps, ask_asset: Asset) -> StdResult<ReverseSi
     match this_price {
         None => Err(StdError::generic_err("Unrecognized asset")),
         Some(asset_price) => {
-            let core_amount =
-                Uint128::from(1_000_000u128).checked_mul(ask_asset.amount)? / asset_price.price;
-            let commission = core_amount / Uint128::from(100u128);
+            let target_amount = asset_price
+                .price
+                .checked_mul(Uint128::from(1_000_000u128))?
+                .checked_div(ask_asset.amount)?;
             Ok(ReverseSimulationResponse {
-                commission_amount: commission,
-                offer_amount: core_amount - commission,
+                commission_amount: target_amount / Uint128::from(100u128),
+                offer_amount: target_amount.saturating_sub(target_amount / Uint128::from(100u128)),
                 spread_amount: Uint128::from(100u128),
             })
         }
@@ -159,8 +160,7 @@ mod tests {
                 denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
                     .to_owned(),
             },
-            amount: Uint128::from(1_000_000u128), // is irrelevant to the response here,
-                                                  // but very relevant on mainnet use with real contract
+            amount: Uint128::from(1_000_000u128),
         };
         let query = query_simulation(deps.as_ref(), query_asset).unwrap();
         println!("query gives {:?}", query);
@@ -173,13 +173,12 @@ mod tests {
             info: AssetInfo::NativeToken {
                 denom: "ujunox".to_owned(),
             },
-            amount: Uint128::from(1_000_000u128), // is irrelevant to the response here,
-                                                  // but very relevant on mainnet use with real contract
+            amount: Uint128::from(1_000_000u128),
         };
         let query = query_reverse_simulation(deps.as_ref(), query_asset).unwrap();
         println!("query reverse gives {:?}", query);
-        assert_eq!(query.commission_amount, Uint128::from(72u128));
-        assert_eq!(query.offer_amount, Uint128::from(7_227u128));
+        assert_eq!(query.commission_amount, Uint128::from(1_370_000u128));
+        assert_eq!(query.offer_amount, Uint128::from(135_630_000u128));
         assert_eq!(query.spread_amount, Uint128::from(100u128));
     }
 }
