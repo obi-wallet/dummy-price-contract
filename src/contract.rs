@@ -45,7 +45,9 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Simulation { offer_asset } => to_binary(&query_simulation(deps, offer_asset)?),
-        QueryMsg::ReverseSimulation { ask_asset } => to_binary(&query_reverse_simulation(deps, ask_asset)?),
+        QueryMsg::ReverseSimulation { ask_asset } => {
+            to_binary(&query_reverse_simulation(deps, ask_asset)?)
+        }
     }
 }
 
@@ -60,30 +62,43 @@ fn query_simulation(deps: Deps, offer_asset: Asset) -> StdResult<SimulationRespo
         });
     match this_price {
         None => Err(StdError::generic_err("Unrecognized asset")),
-        Some(asset_price) => Ok(SimulationResponse {
-            commission_amount: asset_price.price / Uint128::from(100u128),
-            return_amount: asset_price.price - (asset_price.price / Uint128::from(100u128)),
-            spread_amount: Uint128::from(100u128),
-        }),
+        Some(asset_price) => {
+            let base_amount =
+                asset_price.price.checked_mul(offer_asset.amount)? / Uint128::from(1_000_000u128);
+            Ok(SimulationResponse {
+                commission_amount: base_amount / Uint128::from(100u128),
+                return_amount: base_amount.saturating_sub(base_amount / Uint128::from(100u128)),
+                spread_amount: Uint128::from(100u128),
+            })
+        }
     }
 }
 
-fn query_reverse_simulation(deps: Deps, offer_asset: Asset) -> StdResult<SimulationResponse> {
+fn query_reverse_simulation(deps: Deps, ask_asset: Asset) -> StdResult<SimulationResponse> {
     let state: State = STATE.load(deps.storage)?;
     let this_price = state
         .asset_prices
         .into_iter()
-        .find(|item| match offer_asset.info.clone() {
+        .find(|item| match ask_asset.info.clone() {
             AssetInfo::NativeToken { denom } => denom == item.denom,
             AssetInfo::Token { contract_addr } => contract_addr == item.denom,
         });
     match this_price {
         None => Err(StdError::generic_err("Unrecognized asset")),
-        Some(asset_price) => Ok(SimulationResponse {
-            commission_amount: Uint128::from(1_000_000_000_000u128) / asset_price.price * Uint128::from(1_000u128) / Uint128::from(100u128),
-            return_amount: Uint128::from(1_000_000_000_000u128) / asset_price.price * Uint128::from(1_000u128) - (Uint128::from(1_000_000_000_000u128) / asset_price.price * Uint128::from(1_000u128) / Uint128::from(100u128)),
-            spread_amount: Uint128::from(100u128),
-        }),
+        Some(asset_price) => {
+            let base_amount =
+                asset_price.price.checked_mul(ask_asset.amount)? / Uint128::from(1_000_000u128);
+            println!("base amount: {:?}", base_amount);
+            Ok(SimulationResponse {
+                commission_amount: Uint128::from(1_000_000_000_000u128)
+                    / base_amount
+                    / Uint128::from(100u128),
+                return_amount: (Uint128::from(1_000_000_000_000u128) / base_amount).saturating_sub(
+                    Uint128::from(1_000_000_000_000u128) / base_amount / Uint128::from(100u128),
+                ),
+                spread_amount: Uint128::from(100u128),
+            })
+        }
     }
 }
 
@@ -149,6 +164,7 @@ mod tests {
                                                   // but very relevant on mainnet use with real contract
         };
         let query = query_simulation(deps.as_ref(), query_asset).unwrap();
+        println!("query gives {:?}", query);
         assert_eq!(query.commission_amount, Uint128::from(300_000u128));
         assert_eq!(query.return_amount, Uint128::from(29_700_000u128));
         assert_eq!(query.spread_amount, Uint128::from(100u128));
@@ -156,15 +172,15 @@ mod tests {
         // query reverse (juno)
         let query_asset = Asset {
             info: AssetInfo::NativeToken {
-                denom: "ujunox"
-                    .to_owned(),
+                denom: "ujunox".to_owned(),
             },
             amount: Uint128::from(1_000_000u128), // is irrelevant to the response here,
                                                   // but very relevant on mainnet use with real contract
         };
         let query = query_reverse_simulation(deps.as_ref(), query_asset).unwrap();
-        assert_eq!(query.commission_amount, Uint128::from(72_990u128));
-        assert_eq!(query.return_amount, Uint128::from(7_226_010u128));
+        println!("query reverse gives {:?}", query);
+        assert_eq!(query.commission_amount, Uint128::from(72u128));
+        assert_eq!(query.return_amount, Uint128::from(7_227u128));
         assert_eq!(query.spread_amount, Uint128::from(100u128));
     }
 }

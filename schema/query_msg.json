@@ -21,6 +21,26 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "reverse_simulation"
+      ],
+      "properties": {
+        "reverse_simulation": {
+          "type": "object",
+          "required": [
+            "ask_asset"
+          ],
+          "properties": {
+            "ask_asset": {
+              "$ref": "#/definitions/Asset"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {
