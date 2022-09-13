@@ -1,1 +1,1 @@
-cf7034eb067a81799e64be607089befa0915dde73fafdb1e32289c3050ca80be  ./target/wasm32-unknown-unknown/release/dummyprice.wasm
+ba92bf1e608cda204e02159bdb08df2f122eb145d2798a30cdb930fe1c0fdafd  ./target/wasm32-unknown-unknown/release/dummyprice.wasm

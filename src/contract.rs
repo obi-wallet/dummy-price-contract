@@ -6,7 +6,10 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
-use crate::msg::{Asset, AssetInfo, ExecuteMsg, InstantiateMsg, QueryMsg, SimulationResponse};
+use crate::msg::{
+    Asset, AssetInfo, ExecuteMsg, InstantiateMsg, QueryMsg, ReverseSimulationResponse,
+    SimulationResponse,
+};
 use crate::state::{State, STATE};
 
 // version info for migration info
@@ -74,7 +77,7 @@ fn query_simulation(deps: Deps, offer_asset: Asset) -> StdResult<SimulationRespo
     }
 }
 
-fn query_reverse_simulation(deps: Deps, ask_asset: Asset) -> StdResult<SimulationResponse> {
+fn query_reverse_simulation(deps: Deps, ask_asset: Asset) -> StdResult<ReverseSimulationResponse> {
     let state: State = STATE.load(deps.storage)?;
     let this_price = state
         .asset_prices
@@ -86,16 +89,12 @@ fn query_reverse_simulation(deps: Deps, ask_asset: Asset) -> StdResult<Simulatio
     match this_price {
         None => Err(StdError::generic_err("Unrecognized asset")),
         Some(asset_price) => {
-            let base_amount =
-                asset_price.price.checked_mul(ask_asset.amount)? / Uint128::from(1_000_000u128);
-            println!("base amount: {:?}", base_amount);
-            Ok(SimulationResponse {
-                commission_amount: Uint128::from(1_000_000_000_000u128)
-                    / base_amount
-                    / Uint128::from(100u128),
-                return_amount: (Uint128::from(1_000_000_000_000u128) / base_amount).saturating_sub(
-                    Uint128::from(1_000_000_000_000u128) / base_amount / Uint128::from(100u128),
-                ),
+            let core_amount =
+                Uint128::from(1_000_000u128).checked_mul(ask_asset.amount)? / asset_price.price;
+            let commission = core_amount / Uint128::from(100u128);
+            Ok(ReverseSimulationResponse {
+                commission_amount: commission,
+                offer_amount: core_amount - commission,
                 spread_amount: Uint128::from(100u128),
             })
         }
@@ -180,7 +179,7 @@ mod tests {
         let query = query_reverse_simulation(deps.as_ref(), query_asset).unwrap();
         println!("query reverse gives {:?}", query);
         assert_eq!(query.commission_amount, Uint128::from(72u128));
-        assert_eq!(query.return_amount, Uint128::from(7_227u128));
+        assert_eq!(query.offer_amount, Uint128::from(7_227u128));
         assert_eq!(query.spread_amount, Uint128::from(100u128));
     }
 }

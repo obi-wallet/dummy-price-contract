@@ -3,7 +3,7 @@ name = "dummyprice"
 version = "0.1.0"
 authors = ["ntropian <pete@deviantsfactions.com>"]
 edition = "2021"
-uni3_codeid = "3829"
+uni3_codeid = "3831"
 
 exclude = [
   # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.

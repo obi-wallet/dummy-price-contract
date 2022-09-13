@@ -3,7 +3,9 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use dummyprice::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, SimulationResponse};
+use dummyprice::msg::{
+    ExecuteMsg, InstantiateMsg, QueryMsg, ReverseSimulationResponse, SimulationResponse,
+};
 use dummyprice::state::State;
 
 fn main() {
@@ -17,4 +19,5 @@ fn main() {
     export_schema(&schema_for!(QueryMsg), &out_dir);
     export_schema(&schema_for!(State), &out_dir);
     export_schema(&schema_for!(SimulationResponse), &out_dir);
+    export_schema(&schema_for!(ReverseSimulationResponse), &out_dir);
 }
