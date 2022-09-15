@@ -25,8 +25,8 @@ pub enum QueryMsg {
     // GetCount returns the current count as a json-encoded number
     Simulation { offer_asset: Asset },
     ReverseSimulation { ask_asset: Asset },
-    Token1ForToken2(Token1ForToken2Msg),
-    Token2ForToken1(Token2ForToken1Msg),
+    Token1ForToken2Price(Token1ForToken2Msg),
+    Token2ForToken1Price(Token2ForToken1Msg),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
