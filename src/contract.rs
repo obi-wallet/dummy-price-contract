@@ -51,23 +51,23 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ReverseSimulation { ask_asset } => {
             to_binary(&query_reverse_simulation(deps, ask_asset)?)
         }
-        QueryMsg::Token1ForToken2Price(msg) => to_binary(&juno_style_swap1(
+        QueryMsg::Token1ForToken2Price { token1_amount } => to_binary(&juno_style_swap1(
             deps,
             Asset {
                 info: AssetInfo::NativeToken {
                     denom: "ujunox".to_string(),
                 },
-                amount: msg.token1_amount,
+                amount: token1_amount,
             },
         )?),
-        QueryMsg::Token2ForToken1Price(msg) => to_binary(&juno_style_swap2(
+        QueryMsg::Token2ForToken1Price { token2_amount } => to_binary(&juno_style_swap2(
             deps,
             Asset {
                 info: AssetInfo::NativeToken {
                     denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
                         .to_string(),
                 },
-                amount: msg.token2_amount,
+                amount: token2_amount,
             },
         )?),
     }
