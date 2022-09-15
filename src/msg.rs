@@ -25,6 +25,8 @@ pub enum QueryMsg {
     // GetCount returns the current count as a json-encoded number
     Simulation { offer_asset: Asset },
     ReverseSimulation { ask_asset: Asset },
+    Token1ForToken2(Token1ForToken2Msg),
+    Token2ForToken1(Token2ForToken1Msg),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -53,4 +55,28 @@ pub struct ReverseSimulationResponse {
     pub commission_amount: Uint128,
     pub offer_amount: Uint128,
     pub spread_amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Token1ForToken2Msg {
+    pub token1_amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Token2ForToken1Msg {
+    pub token2_amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Token1ForToken2Response {
+    pub token2_amount: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Token2ForToken1Response {
+    pub token1_amount: Uint128,
 }

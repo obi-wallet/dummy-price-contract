@@ -8,7 +8,7 @@ use cw2::set_contract_version;
 use crate::error::ContractError;
 use crate::msg::{
     Asset, AssetInfo, ExecuteMsg, InstantiateMsg, QueryMsg, ReverseSimulationResponse,
-    SimulationResponse,
+    SimulationResponse, Token1ForToken2Response, Token2ForToken1Response,
 };
 use crate::state::{State, STATE};
 
@@ -51,6 +51,25 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ReverseSimulation { ask_asset } => {
             to_binary(&query_reverse_simulation(deps, ask_asset)?)
         }
+        QueryMsg::Token1ForToken2(msg) => to_binary(&juno_style_swap1(
+            deps,
+            Asset {
+                info: AssetInfo::NativeToken {
+                    denom: "ujunox".to_string(),
+                },
+                amount: msg.token1_amount,
+            },
+        )?),
+        QueryMsg::Token2ForToken1(msg) => to_binary(&juno_style_swap2(
+            deps,
+            Asset {
+                info: AssetInfo::NativeToken {
+                    denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                        .to_string(),
+                },
+                amount: msg.token2_amount,
+            },
+        )?),
     }
 }
 
@@ -75,6 +94,65 @@ fn query_simulation(deps: Deps, offer_asset: Asset) -> StdResult<SimulationRespo
             })
         }
     }
+}
+
+fn juno_style_swap1(deps: Deps, known_asset: Asset) -> StdResult<Token1ForToken2Response> {
+    Ok(Token1ForToken2Response {
+        token2_amount: juno_style_swap(deps, known_asset)?,
+    })
+}
+
+fn juno_style_swap2(deps: Deps, known_asset: Asset) -> StdResult<Token2ForToken1Response> {
+    Ok(Token2ForToken1Response {
+        token1_amount: juno_style_swap(deps, known_asset)?,
+    })
+}
+
+fn juno_style_swap(deps: Deps, known_asset: Asset) -> StdResult<Uint128> {
+    let state: State = STATE.load(deps.storage)?;
+    // kludge sim usdc <> junox
+    let usdc_price = state.asset_prices.clone().into_iter().find(|item| {
+        item.denom
+            == *"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+    });
+    let junox_price = state
+        .asset_prices
+        .into_iter()
+        .find(|item| item.denom == *"ujunox");
+    if usdc_price == None {
+        return Err(StdError::generic_err("USDC<>DEX price not set"));
+    }
+    if junox_price == None {
+        return Err(StdError::generic_err("USDC<>DEX price not set"));
+    }
+    let known_asset_denom = match known_asset.info {
+        AssetInfo::NativeToken { denom } => denom,
+        AssetInfo::Token { contract_addr } => contract_addr,
+    };
+    let base_amount = match known_asset_denom {
+        val if val == *"ujunox" => {
+            let dex_amount = known_asset.amount.checked_mul(junox_price.unwrap().price)?; // loop total
+            dex_amount
+                .checked_mul(Uint128::from(1_000_000u128))?
+                .checked_div(usdc_price.unwrap().price)?
+                .checked_div(Uint128::from(1_000_000u128))?
+        }
+        val if val
+            == *"ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034" =>
+        {
+            let dex_amount = known_asset.amount.checked_mul(usdc_price.unwrap().price)?; // loop total
+            dex_amount
+                .checked_mul(Uint128::from(1_000_000u128))?
+                .checked_div(junox_price.unwrap().price)?
+                .checked_div(Uint128::from(1_000_000u128))?
+        }
+        _ => {
+            return Err(StdError::GenericErr {
+                msg: "invalid juno-type swap assets".to_string(),
+            });
+        }
+    };
+    Ok(base_amount)
 }
 
 fn query_reverse_simulation(deps: Deps, ask_asset: Asset) -> StdResult<ReverseSimulationResponse> {
@@ -180,5 +258,28 @@ mod tests {
         assert_eq!(query.commission_amount, Uint128::from(1_370_000u128));
         assert_eq!(query.offer_amount, Uint128::from(135_630_000u128));
         assert_eq!(query.spread_amount, Uint128::from(100u128));
+
+        // query JunoSwap style (juno->usdc)
+        let query_asset = Asset {
+            info: AssetInfo::NativeToken {
+                denom: "ujunox".to_owned(),
+            },
+            amount: Uint128::from(2_000_000u128),
+        };
+        let query = juno_style_swap1(deps.as_ref(), query_asset).unwrap();
+        println!("junoswap query gives {:?}", query);
+        assert_eq!(query.token2_amount, Uint128::from(9_133_333u128));
+
+        // query JunoSwap style (usdc->juno)
+        let query_asset = Asset {
+            info: AssetInfo::NativeToken {
+                denom: "ibc/EAC38D55372F38F1AFD68DF7FE9EF762DCF69F26520643CF3F9D292A738D8034"
+                    .to_owned(),
+            },
+            amount: Uint128::from(20_000_000u128),
+        };
+        let query = juno_style_swap2(deps.as_ref(), query_asset).unwrap();
+        println!("junoswap query reverse gives {:?}", query);
+        assert_eq!(query.token1_amount, Uint128::from(4_379_562u128));
     }
 }
