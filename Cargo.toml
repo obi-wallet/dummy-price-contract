@@ -1,5 +1,5 @@
 [package]
-name = "dummyprice"
+name = "dummy-price-contract"
 version = "0.1.0"
 authors = ["ntropian <pete@deviantsfactions.com>"]
 edition = "2021"
